@@ -11,7 +11,8 @@ class SymmetricEncryptionSystem:
         self.key = None
         self.cipher = None
 
-    def generate_key(self, password = None, salt = None):
+    @staticmethod
+    def generate_key(password = None, salt = None):
         if password and salt:
             key = PBKDF2(password, salt, dkLen=32)
         else:
@@ -40,7 +41,8 @@ class SymmetricEncryptionSystem:
         iv = b64encode(self.cipher.iv).decode('utf-8')
         return b64encode(encrypted_key).decode(), iv
 
-    def decrypt_symmetric_key(self, private_key, encrypted_key):
+    @staticmethod
+    def decrypt_symmetric_key(private_key, encrypted_key):
         cipher_rsa = PKCS1_v1_5.new(private_key)
         encrypted_key = b64decode(encrypted_key)
         symmetric_key = cipher_rsa.decrypt(encrypted_key, None)

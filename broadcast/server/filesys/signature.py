@@ -15,7 +15,8 @@ class SignatureSystem:
         signature = pkcs1_15.new(self.rsa_key_pair).sign(h)
         return b64encode(signature).decode()
 
-    def verify(self, data, signature, rsa_public_key):
+    @staticmethod
+    def verify(data, signature, rsa_public_key):
         # Calculate the SHA-256 hash of the data
         h = SHA256.new(data.encode())
 

@@ -2,12 +2,13 @@ import socket
 import threading
 
 class NetworkConnection:
-    def __init__(self, host, port, server_function = None):
+    def __init__(self, host, port, server_function = None, server_argument = None):
         self.host = host
         self.port = port
         self.socket = None
         self.is_server = False
         self.server_function = server_function
+        self.server_argument = server_argument
         self.clients = []
         self.shutdown_signal = threading.Event()
 
@@ -50,7 +51,7 @@ class NetworkConnection:
                     break  # Break out of the loop if the shutdown signal is set
             else:
                 # If a connection is accepted, handle it in a new thread
-                thread = threading.Thread(target=self.server_function, args=(self, client_socket,))
+                thread = threading.Thread(target=self.server_function, args=(tuple(self.server_argument+[client_socket]) if self.server_argument is not None else (client_socket,)))
                 thread.start()
 
     def start(self):
@@ -65,9 +66,11 @@ class NetworkConnection:
             self.socket = None
         self.is_server = False
 
-    def broadcast(self, message):
+    def broadcast(self, message, clients = None):
         clients_to_remove = []
-        for client_socket in self.clients:
+        if clients is None:
+            clients = self.clients
+        for client_socket in clients:
             try:
                 # Attempt to send data
                 client_socket.sendall(message.encode())
@@ -78,7 +81,7 @@ class NetworkConnection:
 
         # Remove closed sockets from the clients list
         for client_socket in clients_to_remove:
-            self.clients.remove(client_socket)
+            clients.remove(client_socket)
 
     def shutdown_listener(self):
         while not self.shutdown_signal.is_set():
