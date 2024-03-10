@@ -4,17 +4,16 @@ import csv
 class AuthorizationFilesHandler:
     def __init__(self, directory):
         self.directory = directory
-        self.type_file = os.path.join(self.directory, 'types.csv')
+        self.type_file = 'types.csv'
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
-        if not os.path.exists(self.type_file):
-            with open(self.type_file, 'w') as file:
-                pass
 
-    def authorize_user(self, right, user):
+    def authorize_user(self, server, right, user):
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
-        file_path = os.path.join(self.directory, right)
+        if not os.path.exists(os.path.join(self.directory, server)):
+            os.makedirs(os.path.join(self.directory, server))
+        file_path = os.path.join(self.directory, server, right)
         if not os.path.exists(file_path):
             with open(file_path, 'w') as file:
                 pass
@@ -22,10 +21,12 @@ class AuthorizationFilesHandler:
         with open(file_path, 'a') as file:
             file.write(user + '\n')
 
-    def remove_user(self, right, user):
+    def remove_user(self, server, right, user):
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
-        file_path = os.path.join(self.directory, right)
+        if not os.path.exists(os.path.join(self.directory, server)):
+            os.makedirs(os.path.join(self.directory, server))
+        file_path = os.path.join(self.directory, server, right)
         if os.path.exists(file_path):
             with open(file_path, 'r') as file:
                 lines = file.readlines()
@@ -36,29 +37,32 @@ class AuthorizationFilesHandler:
         else:
             print(f"Error: Directory '{self.directory}' or file '{file_path}' does not exist.")
 
-    def set_list_type(self, right, list_type):
+    def set_list_type(self, server, right, list_type):
         if list_type not in ['whitelist', 'blacklist', 'no-limit', 'prohibited']:
             raise ValueError("Invalid list type. Must be 'whitelist', 'blacklist', 'no-limit', or 'prohibited'.")
-        types_data = self._read_types_file()
+        types_data = self._read_types_file(server)
         types_data[right] = list_type
-        self._write_types_file(types_data)
+        self._write_types_file(server, types_data)
 
-    def get_list_type(self, right):
-        types_data = self._read_types_file()
+    def get_list_type(self, server, right):
+        types_data = self._read_types_file(server)
         return types_data.get(right, None)
 
-    def change_list_type(self, right, new_list_type):
-        self.set_list_type(right, new_list_type)
+    def change_list_type(self, server, right, new_list_type):
+        self.set_list_type(server, right, new_list_type)
 
-    def check_user_right(self, right, user):
+    def check_user_right(self, server, right, user):
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
-
-        list_type = self.get_list_type(right)
+        if not os.path.exists(os.path.join(self.directory, server)):
+            os.makedirs(os.path.join(self.directory, server))
+        list_type = self.get_list_type(server, right)
+        if list_type is None:
+            return None
         if list_type == 'whitelist':
-            return self._check_whitelist(right, user)
+            return self._check_whitelist(server, right, user)
         elif list_type == 'blacklist':
-            return self._check_blacklist(right, user)
+            return self._check_blacklist(server, right, user)
         elif list_type == 'no-limit':
             return True
         elif list_type == 'prohibited':
@@ -66,8 +70,22 @@ class AuthorizationFilesHandler:
         else:
             raise ValueError("Invalid list type.")
 
-    def _check_whitelist(self, right, user):
-        file_path = os.path.join(self.directory, right)
+    def check_server(self, server):
+        server_dir = os.path.join(self.directory, server)
+        return os.path.isdir(server_dir)
+
+    def create_server(self, server):
+        server_dir = os.path.join(self.directory, server)
+        if not os.path.exists(server_dir):
+            os.makedirs(server_dir)
+        type_file = os.path.join(server_dir, self.type_file)
+        if not os.path.exists(type_file):
+            with open(type_file, "w") as f:
+                pass
+        return
+
+    def _check_whitelist(self, server, right, user):
+        file_path = os.path.join(self.directory, server, right)
         if os.path.exists(file_path):
             with open(file_path, 'r') as file:
                 authorized_users = [line.strip() for line in file.readlines()]
@@ -76,8 +94,8 @@ class AuthorizationFilesHandler:
             print(f"Error: File '{file_path}' does not exist.")
             return False
 
-    def _check_blacklist(self, right, user):
-        file_path = os.path.join(self.directory, right)
+    def _check_blacklist(self, server, right, user):
+        file_path = os.path.join(self.directory, server, right)
         if os.path.exists(file_path):
             with open(file_path, 'r') as file:
                 unauthorized_users = [line.strip() for line in file.readlines()]
@@ -86,17 +104,19 @@ class AuthorizationFilesHandler:
             print(f"Error: File '{file_path}' does not exist.")
             return False
 
-    def _read_types_file(self):
-        if os.path.exists(self.type_file):
-            with open(self.type_file, 'r') as file:
+    def _read_types_file(self, server):
+        type_file = os.path.join(self.directory, server, self.type_file)
+        if os.path.exists(type_file):
+            with open(type_file, 'r') as file:
                 reader = csv.reader(file)
                 types_data = {row[0]: row[1] for row in reader}
         else:
             types_data = {}
         return types_data
 
-    def _write_types_file(self, types_data):
-        with open(self.type_file, 'w') as file:
+    def _write_types_file(self, server, types_data):
+        type_file = os.path.join(self.directory, server, self.type_file)
+        with open(type_file, 'w') as file:
             writer = csv.writer(file)
             for right, list_type in types_data.items():
                 writer.writerow([right, list_type])

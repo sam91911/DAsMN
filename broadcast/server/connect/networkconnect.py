@@ -51,7 +51,7 @@ class NetworkConnection:
                     break  # Break out of the loop if the shutdown signal is set
             else:
                 # If a connection is accepted, handle it in a new thread
-                thread = threading.Thread(target=self.server_function, args=(tuple(self.server_argument+[client_socket]) if self.server_argument is not None else (client_socket,)))
+                thread = threading.Thread(target=self.server_function, args=(tuple(self.server_argument+[self.shutdown_signal,client_socket]) if self.server_argument is not None else (self.shutdown_signal, client_socket)))
                 thread.start()
 
     def start(self):
@@ -91,3 +91,14 @@ class NetworkConnection:
     def close(self):
         self.shutdown_signal.set()
 
+    @staticmethod
+    def get_ipv4_address():
+        ip_addresses = []
+        for interface in socket.if_nameindex():
+            if_addresses = socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
+            for if_address in if_addresses:
+                ip_addresses.append(if_address[4][0])
+        return ip_addresses
+
+a = NetworkConnection("0.0.0.0", 12345)
+print(a.get_ipv4_address())
