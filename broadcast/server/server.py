@@ -33,7 +33,7 @@ class Server:
             data = rt["data"]
         except KeyError:
             return None
-        if (len(nonce_recv) != 16) or (len(hash_recv) != 32) or ():
+        if (len(nonce_recv) != 16) or (len(hash_recv) != 32):
             return None
         if not self.authorsys.check_server(server_name):
             return None
