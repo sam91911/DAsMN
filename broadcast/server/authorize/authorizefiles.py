@@ -17,7 +17,12 @@ class AuthorizationFilesHandler:
         if not os.path.exists(file_path):
             with open(file_path, 'w') as file:
                 pass
-            self.set_list_type(right, 'whitelist')  # Set default list-type to whitelist
+            self.set_list_type(server, right, 'whitelist')  # Set default list-type to whitelist
+
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+        if (user+'\n') in lines:
+            return
         with open(file_path, 'a') as file:
             file.write(user + '\n')
 
@@ -110,6 +115,9 @@ class AuthorizationFilesHandler:
             with open(type_file, 'r') as file:
                 reader = csv.reader(file)
                 types_data = {row[0]: row[1] for row in reader}
+        elif self.check_server(server):
+            with open(type_file, 'w') as file:
+                pass
         else:
             types_data = {}
         return types_data

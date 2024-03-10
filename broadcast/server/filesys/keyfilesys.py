@@ -30,7 +30,7 @@ class KeyFileSystem:
 
     def _encrypt_data(self, data):
         cipher = AES.new(self.encryption_key, AES.MODE_CBC)
-        encrypted_data = cipher.encrypt(pad(data.encode(), AES.block_size))
+        encrypted_data = cipher.encrypt(pad(data, AES.block_size))
         return cipher.iv + encrypted_data
 
     def _decrypt_data(self, encrypted_data):
@@ -38,7 +38,7 @@ class KeyFileSystem:
         data = encrypted_data[AES.block_size:]
         cipher = AES.new(self.encryption_key, AES.MODE_CBC, iv)
         decrypted_data = unpad(cipher.decrypt(data), AES.block_size)
-        return decrypted_data.decode()
+        return decrypted_data
 
     def save_key(self, key_name, key):
         encrypted_key = self._encrypt_data(key)

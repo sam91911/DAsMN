@@ -19,6 +19,10 @@ class SymmetricEncryptionSystem:
             key = get_random_bytes(32)
         return key
 
+    @property
+    def iv(self):
+        return b64encode(self.cipher.iv).decode('utf-8')
+
     def set_key(self, key, iv = None):
         self.key = key
         if iv is None:

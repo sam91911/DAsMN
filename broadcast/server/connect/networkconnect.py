@@ -29,12 +29,12 @@ class NetworkConnection:
     def send(self, data):
         if not self.socket:
             raise ConnectionError("Socket is not connected.")
-        self.socket.sendall(data.encode())
+        self.socket.sendall(data.encode("utf-8"))
 
-    def receive(self, buffer_size=1024):
+    def receive(self, buffer_size=4096):
         if not self.socket:
             raise ConnectionError("Socket is not connected.")
-        return self.socket.recv(buffer_size).decode()
+        return self.socket.recv(buffer_size).decode("utf-8")
 
     def accept_connections(self):
         if not self.is_server:
@@ -99,6 +99,3 @@ class NetworkConnection:
             for if_address in if_addresses:
                 ip_addresses.append(if_address[4][0])
         return ip_addresses
-
-a = NetworkConnection("0.0.0.0", 12345)
-print(a.get_ipv4_address())
