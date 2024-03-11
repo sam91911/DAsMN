@@ -24,7 +24,7 @@ class Server:
         # Shutdown the network connection
         self.network.close()
 
-    def _login_check(self, nonce_send, rt, slient_socket):
+    def login_check(self, nonce_send, rt, slient_socket):
         try:
             server_name = rt["server_name"]
             nonce_recv = bytes.fromhex(rt["nonce"])
@@ -47,16 +47,19 @@ class Server:
         except:
             return None
         try:
-            user_key = b64decode(data["user"])
+            user = data["user"]
             sign = b64decode(data["sign"])
         except:
             return None
-        user_name = self.namesys.get_user_name(user.encode(), server_name)
-        if not self.authorsys.check_user_right(server_name, "user", user.encode()):
+        user_name = self.namesys.get_user_name(user, server_name)
+        if not self.authorsys.check_user_right(server_name, "user", user):
             return None
-        if not AuthorizationSystem.authorize_user(nonce_send, sign, nonce_recv, user):
+        if not AuthorizationSystem.authorize_user(nonce_send, sign, nonce_recv, b64decode(user.encode())):
             return None
         return user, user_name
+
+    def login_reply(self, nonce_send, nonce_recv, server_name):
+        return None
 
     @staticmethod
     def serve_function(server, exit_signal, client_socket):
@@ -81,10 +84,10 @@ class Server:
         if not isinstance(rt, dict):
             client_socket.sendall("It's a DAsMN server".encode())
             return
-        user = _server.login_check(nonce_send, rt, client_socket)
+        user_key, user_name = server.login_check(nonce_send, rt, client_socket)
         if user is None:
             client_socket.sendall("Wrong server".encode())
             return
-        server.filesys.store_file(rt["server_name"], user, data_recv)
-        client_socket.sendall("login_correct".encode())
+        server.filesys.store_file(rt["server_name"], user_name, user_key, data_recv)
+        client_socket.sendall(server.login_reply(nonce_send, bytes.fromhex(rt["nonce"]), rt["server_name"]))
         return
