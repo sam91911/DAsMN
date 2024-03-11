@@ -13,12 +13,25 @@ class Client:
         self.authorsys = AuthorizationFilesHandler(os.path.join(base_dir, author_dir))
         self.trustsys = TrustedServerManager(os.path.join(base_dir, trust_dir))
 
+    def connect(self, server):
+        private_key = self.keysys.load_key(server, "private")
+        public_key = self.keysys.load_key(server, "public")
+        aes_key = self.keysys.load_key(server, "aes")
+        nonce = self.login(server, private_key, aes_key, public_key)
+        if nonce is None:
+            return
+        if not self.login_reply(server, aes_key, nonce):
+            return
+        return
+
     def login(self, server, private_key, server_key, public_key):
         replysys = AuthorizationSystem(private_key, server_key)
         encryptsys = SymmetricEncryptionSystem()
         encryptsys.set_key(server_key)
         self.network.connect()
         hs = self.network.socket.recv(1024)
+        if len(hs) != 16:
+            return None
         sign, hmac, nonce_rpl = replysys.reply_authorize(hs)
         sign = b64encode(sign).decode()
         user = b64encode(public_key.export_key("DER")).decode()
@@ -26,7 +39,30 @@ class Client:
         data = encryptsys.encrypt_data(json.dumps(data))
         msg = {"server_name": server, "nonce": nonce_rpl.hex(), "hmac": hmac.hex(), "iv": encryptsys.iv, "data": data}
         self.network.send(json.dumps(msg))
+        return hs + nonce_rpl
+    
+    def login_reply(self, server, aes_key, nonce):
         recv = self.network.receive()
-        print("Recv:", recv)
-        return
-        
+        try:
+            rt = json.loads(recv)
+            server_name = rt["server_name"]
+            iv = rt["iv"]
+            data = rt["data"]
+        except:
+            return False
+        if server_name != server:
+            return False
+        symsys = SymmetricEncryptionSystem()
+        symsys.set_key(server_key, iv)
+        try:
+            data = json.loads(symsys.decrypt_data(data))
+            user = data["user"]
+            sign = data["sign"]
+        except:
+            return False
+        trust_list = self.trustsys.load_trusted_servers(server)
+        if user not in trust_list:
+            return False
+        if not AuthorizationSystem.authorize_user(nonce, sign, b64decode(user.encode())):
+            return False
+        return True

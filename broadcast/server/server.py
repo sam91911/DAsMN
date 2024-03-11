@@ -54,14 +54,14 @@ class Server:
         user_name = self.namesys.get_user_name(user, server_name)
         if not self.authorsys.check_user_right(server_name, "user", user):
             return None
-        if not AuthorizationSystem.authorize_user(nonce_send, sign, nonce_recv, b64decode(user.encode())):
+        if not AuthorizationSystem.authorize_user(nonce_send + nonce_recv, sign, b64decode(user.encode())):
             return None
         return user, user_name
 
     def login_reply(self, nonce_send, nonce_recv, server_name):
         private_key = self.keysys.load_key(server_name, "private")
-        server_key = self.keysys.load_key(server_name, "aeskey")
-        public_key = self.namesys.get_user_key("__self", server_name)
+        server_key = self.keysys.load_key(server_name, "aes")
+        public_key = self.keysys.load_key(server_name, "public")
         replysys = AuthorizationSystem(private_key, server_key)
         symsys = SymmetricEncryptionSystem()
         symsys.set_key(server_key)
@@ -69,7 +69,7 @@ class Server:
         sign, hmac, _ = replysys.reply_authorize(nonce_send, nonce_recv)
         sign = b64encode(sign).decode()
         data = {"user": public_key, "sign": sign}
-        data = encryptsys.encrypt_data(json.dumps(data))
+        data = symsys.encrypt_data(json.dumps(data))
         data_send = {"server_name": server_name, "iv": iv, "data":data}
         data_send = json.dumps(data_send)
         return data_send
