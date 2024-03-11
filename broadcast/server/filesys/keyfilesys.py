@@ -28,29 +28,40 @@ class KeyFileSystem:
         else:
             self.encryption_key = encryption_key
 
-    def _encrypt_data(self, data):
-        cipher = AES.new(self.encryption_key, AES.MODE_CBC)
+    def _encrypt_data(self, data, encrypt_key = None):
+        if encrypt_key is None:
+            encrypt_key = self.encryption_key
+        cipher = AES.new(encrypt_key, AES.MODE_CBC)
         encrypted_data = cipher.encrypt(pad(data, AES.block_size))
         return cipher.iv + encrypted_data
 
-    def _decrypt_data(self, encrypted_data):
+    def _decrypt_data(self, encrypted_data, encrypt_key = None):
+        if encrypt_key is None:
+            encrypt_key = self.encryption_key
         iv = encrypted_data[:AES.block_size]
         data = encrypted_data[AES.block_size:]
-        cipher = AES.new(self.encryption_key, AES.MODE_CBC, iv)
+        cipher = AES.new(encrypt_key, AES.MODE_CBC, iv)
         decrypted_data = unpad(cipher.decrypt(data), AES.block_size)
         return decrypted_data
 
-    def save_key(self, key_name, key):
+    def save_key(self, key_name, key, keytype):
         encrypted_key = self._encrypt_data(key)
         file_path = os.path.join(self.directory, f"{key_name}.json")
-        with open(file_path, 'w') as file:
-            json.dump({'key': encrypted_key.hex()}, file)
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as file:
+                data_dict = json.load(file)
+            data_dict[keytype] = encrypted_key.hex()
+        else:
+            data_dict = {keytype: encrypted_key.hex()}
 
-    def load_key(self, key_name):
+        with open(file_path, 'w') as file:
+            json.dump(data_dict, file)
+
+    def load_key(self, key_name, keytype):
         file_path = os.path.join(self.directory, f"{key_name}.json")
         try:
             with open(file_path, 'r') as file:
-                encrypted_key = bytes.fromhex(json.load(file)['key'])
+                encrypted_key = bytes.fromhex(json.load(file)[keytype])
                 return self._decrypt_data(encrypted_key)
         except FileNotFoundError:
             return None
@@ -60,20 +71,15 @@ class KeyFileSystem:
         for key_file in os.listdir(self.directory):
             file_path = os.path.join(self.directory, key_file)
             with open(file_path, 'r') as file:
-                encrypted_key = bytes.fromhex(json.load(file)['key'])
-                decrypted_key = self._decrypt_data(encrypted_key)
-                new_encrypted_key = self._encrypt_data(decrypted_key)
+                keys = json.load(file)
             with open(file_path, 'w') as file:
-                json.dump({'key': new_encrypted_key.hex()}, file)
+                json.dump({keytype: (self._encrypt_data(self._decrypt_data(bytes.fromhex(keys[keytype])), new_encryption_key)).hex() for keytype in keys}, file)
         
         # Update the encryption key
         self.encryption_key = new_encryption_key
 
-    def change_key(self, key_name, new_key):
-        encrypted_key = self._encrypt_data(new_key)
-        file_path = os.path.join(self.directory, f"{key_name}.json")
-        with open(file_path, 'w') as file:
-            json.dump({'key': encrypted_key.hex()}, file)
+    def change_key(self, key_name, new_key, keytype):
+        self.save_key(key_name, new_key, keytype)
 
     @staticmethod
     def generate_aes_key(password, salt):

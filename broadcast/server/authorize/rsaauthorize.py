@@ -31,9 +31,10 @@ class AuthorizationSystem:
         hmac_obj.update(nonce_send+nonce_receive)
         return hmac_obj.digest()
 
-    def reply_authorize(self, nonce_send):
+    def reply_authorize(self, nonce_send, nonce_recv = None):
         cipher_rsa = PKCS1_v1_5.new(self.rsa_key)
-        nonce_reply = self.generate_nonce()
+        if nonce_recv is None:
+            nonce_reply = self.generate_nonce()
         hashed_data = SHA256.new(nonce_send+nonce_reply)
         signature = cipher_rsa.sign(hashed_data)
         hmac_value = self.hmac(nonce_send, nonce_reply, self.server_key)

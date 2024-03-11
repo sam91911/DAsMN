@@ -37,7 +37,7 @@ class Server:
             return None
         if not self.authorsys.check_server(server_name):
             return None
-        server_key = self.keysys.load_key(server_name)
+        server_key = self.keysys.load_key(server_name, "aeskey")
         if not AuthorizationSystem.hmac_check(nonce_send, hash_recv, nonce_recv, server_key):
             return None
         symsys = SymmetricEncryptionSystem()
@@ -59,7 +59,20 @@ class Server:
         return user, user_name
 
     def login_reply(self, nonce_send, nonce_recv, server_name):
-        return None
+        private_key = self.keysys.load_key(server_name, "private")
+        server_key = self.keysys.load_key(server_name, "aeskey")
+        public_key = self.namesys.get_user_key("__self", server_name)
+        replysys = AuthorizationSystem(private_key, server_key)
+        symsys = SymmetricEncryptionSystem()
+        symsys.set_key(server_key)
+        iv = symsys.iv
+        sign, hmac, _ = replysys.reply_authorize(nonce_send, nonce_recv)
+        sign = b64encode(sign).decode()
+        data = {"user": public_key, "sign": sign}
+        data = encryptsys.encrypt_data(json.dumps(data))
+        data_send = {"server_name": server_name, "iv": iv, "data":data}
+        data_send = json.dumps(data_send)
+        return data_send
 
     @staticmethod
     def serve_function(server, exit_signal, client_socket):
@@ -84,10 +97,11 @@ class Server:
         if not isinstance(rt, dict):
             client_socket.sendall("It's a DAsMN server".encode())
             return
-        user_key, user_name = server.login_check(nonce_send, rt, client_socket)
+        user = server.login_check(nonce_send, rt, client_socket)
         if user is None:
             client_socket.sendall("Wrong server".encode())
             return
+        user_name, user_key = user
         server.filesys.store_file(rt["server_name"], user_name, user_key, data_recv)
         client_socket.sendall(server.login_reply(nonce_send, bytes.fromhex(rt["nonce"]), rt["server_name"]))
         return
