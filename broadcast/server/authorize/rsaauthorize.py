@@ -15,7 +15,7 @@ class AuthorizationSystem:
 
     @staticmethod
     def authorize_user(nonce_send, signature, nonce_receive, rsa_public_key):
-        if isinstance(rsa_public_key, str):
+        if isinstance(rsa_public_key, str) or isinstance(rsa_public_key, bytes):
             rsa_public_key = RSA.import_key(rsa_public_key)
         cipher_rsa = PKCS1_v1_5.new(rsa_public_key)
         hashed_data = SHA256.new(nonce_send+nonce_receive)

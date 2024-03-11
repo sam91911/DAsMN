@@ -13,7 +13,7 @@ class Client:
         self.authorsys = AuthorizationFilesHandler(os.path.join(base_dir, author_dir))
         self.trustsys = TrustedServerManager(os.path.join(base_dir, trust_dir))
 
-    def login(self, server, private_key, server_key, user):
+    def login(self, server, private_key, server_key, public_key):
         replysys = AuthorizationSystem(private_key, server_key)
         encryptsys = SymmetricEncryptionSystem()
         encryptsys.set_key(server_key)
@@ -21,6 +21,7 @@ class Client:
         hs = self.network.socket.recv(1024)
         sign, hmac, nonce_rpl = replysys.reply_authorize(hs)
         sign = b64encode(sign).decode()
+        user = b64encode(public_key.export_key("DER")).decode()
         data = {"user": user, "sign": sign}
         data = encryptsys.encrypt_data(json.dumps(data))
         msg = {"server_name": server, "nonce": nonce_rpl.hex(), "hmac": hmac.hex(), "iv": encryptsys.iv, "data": data}

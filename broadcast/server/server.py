@@ -24,7 +24,7 @@ class Server:
         # Shutdown the network connection
         self.network.close()
 
-    def login_check(self, nonce_send, rt, slient_socket):
+    def _login_check(self, nonce_send, rt, slient_socket):
         try:
             server_name = rt["server_name"]
             nonce_recv = bytes.fromhex(rt["nonce"])
@@ -47,16 +47,16 @@ class Server:
         except:
             return None
         try:
-            user = data["user"]
+            user_key = b64decode(data["user"])
             sign = b64decode(data["sign"])
         except:
             return None
-        user_key = self.namesys.get_user_key(user, server_name)
-        if not self.authorsys.check_user_right(server_name, "user", user):
+        user_name = self.namesys.get_user_name(user.encode(), server_name)
+        if not self.authorsys.check_user_right(server_name, "user", user.encode()):
             return None
-        if not AuthorizationSystem.authorize_user(nonce_send, sign, nonce_recv, user_key):
+        if not AuthorizationSystem.authorize_user(nonce_send, sign, nonce_recv, user):
             return None
-        return user
+        return user, user_name
 
     @staticmethod
     def serve_function(server, exit_signal, client_socket):
@@ -81,7 +81,7 @@ class Server:
         if not isinstance(rt, dict):
             client_socket.sendall("It's a DAsMN server".encode())
             return
-        user = server.login_check(nonce_send, rt, client_socket)
+        user = _server.login_check(nonce_send, rt, client_socket)
         if user is None:
             client_socket.sendall("Wrong server".encode())
             return
